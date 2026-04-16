@@ -4,11 +4,20 @@ function masconData = averageFieldToMascons(fieldData, lonGrid, latGrid, ...
 
 numMascons = numel(lonBound1);
 fieldSize = size(fieldData);
+if numel(fieldSize) < 2
+    error('fieldData must be at least two-dimensional.');
+end
+if ~isequal(size(lonGrid), size(latGrid))
+    error('lonGrid and latGrid must have the same size.');
+end
+if any(size(lonGrid) ~= fieldSize(1:2))
+    error('The first two dimensions of fieldData must match lonGrid and latGrid.');
+end
 trailingSize = fieldSize(3:end);
 numSlices = prod(trailingSize);
 fieldData2D = reshape(fieldData, fieldSize(1), fieldSize(2), numSlices);
 fieldDataFlat = reshape(fieldData2D, [], numSlices);
-masconData2D = zeros(numMascons, numSlices);
+masconData2D = nan(numMascons, numSlices);
 
 for i = 1:numMascons
     if ~flagAcross180(i)

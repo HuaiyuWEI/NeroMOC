@@ -1,7 +1,7 @@
 % Huaiyu Wei
 % Interpolate ACCESS-ESM1-5 model output from the native grid to the JPL
 % GRACE mascon grid. Variables include ocean bottom pressure, sea surface
-% height, and zonal near-surface wind speed.
+% height, and 10-m zonal wind speed.
 
 clearvars;
 close all;
@@ -51,6 +51,8 @@ if ~isfolder(DataPath_ESM1d5)
     error('Input data folder not found: %s', DataPath_ESM1d5);
 end
 
+outputDir = DataPath_ESM1d5;
+
 %% load reference OBP and SSH
 
 temp = load(baselineMeanFile,'Input_vars_mascon');
@@ -70,7 +72,7 @@ cd(DataPath_ESM1d5)
 
 
 
-sample_file = fullfile(DataPath_ESM1d5,  filelist{1});
+sample_file = fullfile(DataPath_ESM1d5, filelist{1});
 ncdisp(sample_file)
 Lat_ESM = ncread(sample_file, 'latitude');
 Lon_ESM = ncread(sample_file, 'longitude');
@@ -78,8 +80,6 @@ Lon_ESM = [Lon_ESM(101:360,:); Lon_ESM(1:100,:)];
 Lat_ESM = [Lat_ESM(101:360,:); Lat_ESM(1:100,:)];
 Lon_ESM(Lon_ESM>180) = Lon_ESM(Lon_ESM>180)-360;
 [Nlon,Nlat] = size(Lon_ESM);
-
-Nsamps = size(ncread(sample_file, 'time')); Nsamps= Nsamps(1);
 
 
 
@@ -95,13 +95,20 @@ for r_ind = ensembleStart:ensembleEnd
     for i = fileIndices
         fprintf('Processing realization file: %s\n', filelist{i});
 
-        Input_vars_temp = nan(Nlon,Nlat,Nsamps,NInputs);
+        Input_vars_temp = [];
+        Var_time_temp = [];
         %%% Load input variables and apply missing value mask
         for var_ind = 1:NInputs
             InputName = InputNames{var_ind};
             file_name = fullfile(DataPath_ESM1d5, [InputName, filelist{i}(4:end)]);
+            file_time = ncread(file_name,'time');
+            if isempty(Var_time_temp)
+                Var_time_temp = file_time;
+                Input_vars_temp = nan(Nlon, Nlat, numel(Var_time_temp), NInputs);
+            elseif ~isequal(file_time, Var_time_temp)
+                error('Time coordinate mismatch between variables in %s', filelist{i});
+            end
             Input_vars_temp(:,:,:,var_ind) = ncread(file_name,InputName);
-            Var_time_temp = ncread(file_name,'time');
         end
 
         Input_vars = cat(3,Input_vars,Input_vars_temp);
@@ -129,13 +136,13 @@ for r_ind = ensembleStart:ensembleEnd
         %%% Save result
         if(ii == 1)
             Input_vars_mascon = Input_vars_mascon - OBP_2004_2009_mean;
-            save(['Mascon_V5_OBP_r' realization '.mat'], ...
+            save(fullfile(outputDir, ['Mascon_V5_OBP_r' realization '.mat']), ...
                 'lon_mascon','lat_mascon', 'Input_vars_mascon','Basin_id','OBP_2004_2009_mean', ...
                 'lon_mascon_center','lat_mascon_center','mascon_ID','mascon_ID_uniq', 'flag_across_180', ...
                 'lon_mascon_bound1','lon_mascon_bound2','lat_mascon_bound1','lat_mascon_bound2','Input_time','-v7.3');
         elseif(ii == 2)
             Input_vars_mascon = Input_vars_mascon - SSH_2004_2009_mean;
-            save(['Mascon_V5_SSH_r' realization '.mat'], ...
+            save(fullfile(outputDir, ['Mascon_V5_SSH_r' realization '.mat']), ...
                 'lon_mascon','lat_mascon', 'Input_vars_mascon','Basin_id', 'flag_across_180', ...
                 'lon_mascon_center','lat_mascon_center','mascon_ID','mascon_ID_uniq','SSH_2004_2009_mean', ...
                 'lon_mascon_bound1','lon_mascon_bound2','lat_mascon_bound1','lat_mascon_bound2','Input_time','-v7.3');
@@ -167,7 +174,6 @@ Lon_atm = ncread(sample_file, 'lon');
 Lon_atm = [Lon_atm(97:end,:); Lon_atm(1:96,:)];
 Lat_atm = [Lat_atm(97:end,:); Lat_atm(1:96,:)];
 Lon_atm(Lon_atm>180) = Lon_atm(Lon_atm>180)-360;
-Nsamps = size(ncread(sample_file, 'time')); Nsamps= Nsamps(1);
 
 [Nlon_atm,Nlat_atm] = size(Lon_atm);
 
@@ -184,13 +190,20 @@ for r_ind = ensembleStart:ensembleEnd
     for i = fileIndices
         fprintf('Processing realization file: %s\n', filelist{i});
 
-        Input_vars_temp = nan(Nlon_atm,Nlat_atm,Nsamps,NInputs);
+        Input_vars_temp = [];
+        Var_time_temp = [];
         %%% Load input variables and apply missing value mask
         for var_ind = 1:NInputs
             InputName = InputNames{var_ind};
             file_name = fullfile(DataPath_ESM1d5, filelist{i});
+            file_time = ncread(file_name,'time');
+            if isempty(Var_time_temp)
+                Var_time_temp = file_time;
+                Input_vars_temp = nan(Nlon_atm, Nlat_atm, numel(Var_time_temp), NInputs);
+            elseif ~isequal(file_time, Var_time_temp)
+                error('Time coordinate mismatch between variables in %s', filelist{i});
+            end
             Input_vars_temp(:,:,:,var_ind) = ncread(file_name,InputName);
-            Var_time_temp = ncread(file_name,'time');
         end
 
         Input_vars = cat(3,Input_vars,Input_vars_temp);
@@ -227,7 +240,7 @@ for r_ind = ensembleStart:ensembleEnd
 
     %%% Save result
     if(strcmp(InputName,'uas'))
-        save(['Mascon_V5_UAS_r' realization '.mat'], ...
+        save(fullfile(outputDir, ['Mascon_V5_UAS_r' realization '.mat']), ...
             'lon_mascon','lat_mascon', 'Input_vars_mascon','Basin_id', 'flag_across_180',...
             'lon_mascon_center','lat_mascon_center','mascon_ID','mascon_ID_uniq', ...
             'lon_mascon_bound1','lon_mascon_bound2','lat_mascon_bound1','lat_mascon_bound2','Input_time','-v7.3');
@@ -250,6 +263,10 @@ function [filelist, realizationNumbers] = findAccessRealizationFiles(dataPath, f
 % Find ACCESS-ESM1-5 files and parse their realization numbers.
 
 files = dir(fullfile(dataPath, filePattern));
+if ~isempty(files)
+    [~, order] = sort({files.name});
+    files = files(order);
+end
 filelist = {files.name};
 disp(filelist')
 
@@ -287,7 +304,7 @@ end
 matchIndices = matches;
 fileBase = filelist{matches(1)};
 
-tokens = regexp(fileBase, 'r(\d+)i1p1f1', 'tokens');
+tokens = regexp(fileBase, '_r(\d+)i\d+p\d+f\d+', 'tokens');
 realization = '000';
 if ~isempty(tokens)
     realization = tokens{1}{1};

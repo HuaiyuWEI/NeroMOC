@@ -9,7 +9,7 @@ projectRoot = 'D:\OneDrive - University of California\MATLAB Codes\MOC\CMIP6_202
 toolboxRoot = 'D:\OneDrive - University of California\MATLAB toolboxs';
 duacsDataDir = 'E:\Data_SSH\DUACS\daily';
 duacsMonthlyFile = fullfile(duacsDataDir, 'DUACS_200204_202504.mat');
-referenceMasconFile = 'E:\Data_CMIP6\ACCESS_historical\Mascon_V5_OBP_r10.mat';
+referenceMasconFile = fullfile(projectRoot, 'BasinMask', 'Mascon_AtlSO.mat');
 outputFile = fullfile(duacsDataDir, 'DUACS_mascon_200204_202504_V5.mat');
 
 addpath(genpath(toolboxRoot));
@@ -30,9 +30,13 @@ end
 
 
 %% Calculates monthly Absolute dynamic topography from daily Copernicus altimetry data.
-if(~exist(duacsMonthlyFile))
+if ~isfile(duacsMonthlyFile)
 cd(duacsDataDir)
 filelist = dir(fullfile(duacsDataDir, '*.nc'));
+if ~isempty(filelist)
+    [~, order] = sort({filelist.name});
+    filelist = filelist(order);
+end
 disp({filelist.name}')
 
 if isempty(filelist)
@@ -49,6 +53,8 @@ for f = 1:length(filelist)
     % Read time and ADT
     time = ncread(filename, 'time'); % days since 1950-01-01
     adt  = ncread(filename, 'adt');  % [lon, lat, time]
+    fillValue = ncreadatt(filename, 'adt', '_FillValue');
+    adt(adt == fillValue) = nan;
 
     % Convert to datetime
     time_dt = datetime(1950,1,1) + days(time);
@@ -64,7 +70,7 @@ for f = 1:length(filelist)
             error('same month is found in multiple files')
         else
             adt_monthly_map(m) = struct('sum', sum(adt(:,:,idx),3,'omitnan'), ...
-                                        'count', size(idx,1));
+                                        'count', numel(idx));
         end
     end
 end
@@ -86,7 +92,6 @@ monthly_time = datetime(floor(all_months/100), mod(all_months,100), 1);
 
 
 [lat_DUACS,lon_DUACS] = meshgrid(lat_DUACS,lon_DUACS);
-adt_monthly(adt_monthly==0) = nan;
 
 
 % Save result
@@ -96,7 +101,7 @@ save(duacsMonthlyFile, ...
 end
 
 %% load monthly SSH data
-if(exist(duacsMonthlyFile)>0)
+if isfile(duacsMonthlyFile)
 load(duacsMonthlyFile)
 end
 
@@ -153,6 +158,9 @@ time_year = year(monthly_time);
 time_month = month(monthly_time);
 % Find indices within Jan 2004 to Dec 2009
 ind_time = find( time_year >= 2004 & time_year <= 2009 );
+if isempty(ind_time)
+    error('No DUACS monthly samples between Jan 2004 and Dec 2009 were found in %s', duacsMonthlyFile);
+end
 t_start = ind_time(1);
 t_end   = ind_time(end);
 t_count = t_end - t_start + 1;
@@ -193,5 +201,3 @@ end
 cd(duacsDataDir)
 save(outputFile, ...
     'lon_mascon_center','lat_mascon_center','ssh_mascon_NoNan','ssh_mascon','adt_mascon_ref','monthly_time','Basin_id','-v7.3');
-
-

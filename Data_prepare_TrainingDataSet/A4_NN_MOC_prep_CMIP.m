@@ -27,9 +27,9 @@ ensembleEnd = 40;
 % DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_historical\';
 % DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_SSP245\';
 % DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_SSP370\';
-DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_SSP126\';
+% DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_SSP126\';
 % DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_SSP126\2100-2300\';
-% DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_SSP585\2100-2300\';
+DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_SSP585';
 
 if ~isfolder(DataPath_CM4)
     error('CM4 grid folder not found: %s', DataPath_CM4);
@@ -41,10 +41,19 @@ if ~isfolder(DataPath_ESM1d5)
     error('Input data folder not found: %s', DataPath_ESM1d5);
 end
 
+outputDir = DataPath_ESM1d5;
+
 
 % load the gr grid from GFDL CM4
 cd(DataPath_CM4)
-DepthFile_gr = dir(fullfile(DataPath_CM4,['*deptho*gr.nc'])).name;
+depthFiles = dir(fullfile(DataPath_CM4, '*deptho*gr.nc'));
+if isempty(depthFiles)
+    error('No CM4 depth file matching *deptho*gr.nc was found in %s', DataPath_CM4);
+end
+if numel(depthFiles) > 1
+    error('Multiple CM4 depth files matched *deptho*gr.nc in %s', DataPath_CM4);
+end
+DepthFile_gr = depthFiles(1).name;
 ncdisp(DepthFile_gr)
 nc=netcdf(DepthFile_gr);
 lat_gr=nc{'lat'}(:)';
@@ -70,6 +79,10 @@ PsiName = 'msftmrho'
 % for heat flux, the variable name would be hfbasin
 
 files = dir(fullfile(DataPath_ESM1d5,['*' PsiName '*.nc']));
+if ~isempty(files)
+    [~, order] = sort({files.name});
+    files = files(order);
+end
 file_names = {files.name};
 % Extract number after "_r" (e.g., r2, r11, etc.)
 r_numbers = zeros(size(file_names));
@@ -107,7 +120,7 @@ for r_ind = ensembleStart:ensembleEnd
         fprintf('Processing realization file: %s\n', file_base);
 
         % Extract realization number
-        tokens = regexp(file_base, 'r(\d+)i1p1f1', 'tokens');
+        tokens = regexp(file_base, '_r(\d+)i\d+p\d+f\d+', 'tokens');
         realization = '000';  % default if no match
         if ~isempty(tokens)
             realization = tokens{1}{1};
@@ -149,7 +162,11 @@ clear Psi_all
 % test1 = Psi_AMOC(:,:,199);
 % test2 = Psi_SOMOC(:,:,199);
 
-ind_AMOC_SOMOC_sep = find( ~isnan(Psi_AMOC(:,40,1)),1 );
+separationDensityIndex = min(40, size(Psi_AMOC, 2));
+ind_AMOC_SOMOC_sep = find(~isnan(Psi_AMOC(:, separationDensityIndex, 1)), 1);
+if isempty(ind_AMOC_SOMOC_sep) || ind_AMOC_SOMOC_sep == 1
+    error('Could not determine the AMOC/SOMOC separation latitude from column %d.', separationDensityIndex);
+end
 Psi_ASMOC = cat( 1, Psi_SOMOC(1:ind_AMOC_SOMOC_sep-1,:,:), Psi_AMOC(ind_AMOC_SOMOC_sep:end,:,:));
 
 disp(['Northmost grid for SOMOC is' num2str(lat_psi(ind_AMOC_SOMOC_sep-1))])
@@ -158,13 +175,13 @@ disp(['Southmost grid for AMOC is' num2str(lat_psi(ind_AMOC_SOMOC_sep))])
 
 moc_mean = squeeze(mean(Psi_ASMOC/1e6,3));
 
-figure
-contourf(lat_psi,-rho2_i,squeeze(mean(Psi_ASMOC/1e6,3))',[-50:0.5:50],'Edgecolor','none')
-shading flat
-xlim([-75 65])
-ylim([-1037.2 -1035])
-clim([-20 20])
-cmocean('red',100)
+% figure
+% contourf(lat_psi,-rho2_i,squeeze(mean(Psi_ASMOC/1e6,3))',[-50:0.5:50],'Edgecolor','none')
+% shading flat
+% xlim([-75 65])
+% ylim([-1037.2 -1035])
+% clim([-20 20])
+% cmocean('red',100)
 
 
 %% full-depth MOC in the Atlantic and SO
@@ -172,7 +189,13 @@ cmocean('red',100)
 
 
 rho2_interp = rho2_i(and(rho2_i>1035,rho2_i<1037.2));
+if isempty(rho2_interp)
+    error('No density levels were found between 1035 and 1037.2 kg m^-3.');
+end
 MOC_gr_ind = [16:155]; %from 75S to 65N
+if MOC_gr_ind(end) > numel(lat_gr)
+    error('MOC_gr_ind exceeds the available CM4 latitude grid.');
+end
 lat_gr(16);
 lat_gr(155);
 [RHO_PSI_interp,LAT_PSI_interp ] = meshgrid(rho2_interp,lat_gr(MOC_gr_ind ));
@@ -180,6 +203,9 @@ lat_gr(155);
 
 % Define the sub-region of interest for the source grid.
 ind_gn = [11:245]; %from 75S to 65N
+if ind_gn(end) > numel(lat_psi)
+    error('ind_gn exceeds the available ACCESS latitude grid.');
+end
 lat_psi(11);
 lat_psi(245);
 
@@ -207,17 +233,17 @@ end
 
 test1 = squeeze(mean(Psi_ASMOC(ind_gn,and(rho2_i>1035,rho2_i<1037.2),:),3))/1e6;
 test2 = squeeze(mean(Psi_ASMOC_interp,3))/1e6;
-figure
-hold on
-plot(LAT_PSI(ind_gn,1),test1(:,end))
-plot(lat_gr(MOC_gr_ind),test2(:,end))
+% figure
+% hold on
+% plot(LAT_PSI(ind_gn,1),test1(:,end))
+% plot(lat_gr(MOC_gr_ind),test2(:,end))
 
-figure
-pcolor(LAT_PSI_interp,-RHO_PSI_interp,squeeze(mean(Psi_ASMOC_interp,3))/1e6)
-xlim([-75 65])
-ylim([-1037.2 -1035])
-clim([-20 20])
-cmocean('red',100)
+% figure
+% pcolor(LAT_PSI_interp,-RHO_PSI_interp,squeeze(mean(Psi_ASMOC_interp,3))/1e6)
+% xlim([-75 65])
+% ylim([-1037.2 -1035])
+% clim([-20 20])
+% cmocean('red',100)
 
 
 LAT_ASMOC_interp = LAT_PSI_interp;
@@ -226,7 +252,8 @@ RHO_ASMOC_interp = RHO_PSI_interp;
 
 
 
-save(['FullDepth_ASMOC_interp_gr_r' realization '.mat'],'Psi_ASMOC_interp','LAT_ASMOC_interp','RHO_ASMOC_interp', ...
+save(fullfile(outputDir, ['FullDepth_ASMOC_interp_gr_r' realization '.mat']), ...
+    'Psi_ASMOC_interp','LAT_ASMOC_interp','RHO_ASMOC_interp', ...
     'time_Psi','-v7.3')
 
 end

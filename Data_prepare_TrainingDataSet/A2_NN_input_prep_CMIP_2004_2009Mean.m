@@ -37,7 +37,8 @@ load(grdfile)
 ensembleStart = 1;
 ensembleEnd = 35;
 DataPath_ESM1d5 = 'E:\Data_CMIP6\ACCESS_historical\';
-outputFile = sprintf('Mascon_TimeMean_2004_2009_r%d-r%d.mat', ensembleStart, ensembleEnd);
+outputFile = fullfile(DataPath_ESM1d5, ...
+    sprintf('Mascon_TimeMean_2004_2009_r%d-r%d.mat', ensembleStart, ensembleEnd));
 
 if ensembleStart > ensembleEnd
     error('ensembleStart must be less than or equal to ensembleEnd.')
@@ -58,9 +59,13 @@ cd(DataPath_ESM1d5)
 
 numRealizations = ensembleEnd - ensembleStart + 1;
 inputVarsByRealization = cell(numRealizations, 1);
+sampleFileBase = '';
 for r_ind = ensembleStart:ensembleEnd
 
     [~, file_base, ~] = getAccessRealizationFile(filelist, r_numbers, r_ind);
+    if isempty(sampleFileBase)
+        sampleFileBase = file_base;
+    end
     fprintf('Processing realization file: %s\n', file_base);
 
     Input_vars_temp = [];
@@ -72,9 +77,11 @@ for r_ind = ensembleStart:ensembleEnd
         time_datetime = datetime(1850, 1, 1) + days(Var_time_temp);
         % Extract year and month
         time_year = year(time_datetime);
-        time_month = month(time_datetime);
         % Find indices within Jan 2004 to Dec 2009
         ind_time = find( time_year >= 2004 & time_year <= 2009 );
+        if isempty(ind_time)
+            error('No monthly samples between Jan 2004 and Dec 2009 were found in %s', file_name);
+        end
         t_start = ind_time(1);
         t_end   = ind_time(end);
         t_count = t_end - t_start + 1;
@@ -112,7 +119,7 @@ Input_vars_avg = [Input_vars_avg(101:360,:,:); Input_vars_avg(1:100,:,:)];
 
 
 %%% Load coordinates and time (only once)
-sample_file = fullfile(DataPath_ESM1d5, ['pbo', file_base(4:end)]);
+sample_file = fullfile(DataPath_ESM1d5, ['pbo', sampleFileBase(4:end)]);
 Lat_ESM = ncread(sample_file, 'latitude');
 Lon_ESM = ncread(sample_file, 'longitude');
 Lon_ESM = [Lon_ESM(101:360,:); Lon_ESM(1:100,:)];
@@ -156,6 +163,10 @@ function [filelist, realizationNumbers] = findAccessRealizationFiles(dataPath, f
 % Find ACCESS-ESM1-5 files and parse their realization numbers.
 
 files = dir(fullfile(dataPath, filePattern));
+if ~isempty(files)
+    [~, order] = sort({files.name});
+    files = files(order);
+end
 filelist = {files.name};
 disp(filelist')
 
@@ -193,7 +204,7 @@ end
 matchIndices = matches;
 fileBase = filelist{matches(1)};
 
-tokens = regexp(fileBase, 'r(\d+)i1p1f1', 'tokens');
+tokens = regexp(fileBase, '_r(\d+)i\d+p\d+f\d+', 'tokens');
 realization = '000';
 if ~isempty(tokens)
     realization = tokens{1}{1};

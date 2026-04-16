@@ -81,7 +81,7 @@ mascon_ID(or(lat_mascon<-75,lat_mascon>64.5)) = nan;
 mascon_ID_uniq = unique(mascon_ID(~isnan(mascon_ID)));
 for i = 1:length(mascon_ID_uniq)
     ind =  (mascon_ID == mascon_ID_uniq(i));
-    if(mean(land_mask(ind)) ~=0) % remove mascon contains land
+if any(land_mask(ind) ~= 0) % remove mascons that contain any land cells
         % if(mean(land_mask(ind)) ==1) % remove mascon 100% on land
         % if(mean(land_mask(ind)) >=0.5) % remove mascon more than half land
         mascon_ID_uniq(i) = nan;
@@ -165,9 +165,9 @@ colorbar
 title('Mascons in the Atlantic and Southern Ocean')
 
 
-%%
-cd(fullfile(projectRoot, 'BasinMask'))
-save('Mascon_AtlSO.mat', ...
+%% Save mascon metadata
+outputFile = fullfile(projectRoot, 'BasinMask', 'Mascon_AtlSO.mat');
+save(outputFile, ...
     'lon_mascon','lat_mascon','Basin_id','Nmascon', ...
     'lon_mascon_center','lat_mascon_center','mascon_ID','mascon_ID_uniq', 'flag_across_180', ...
     'lon_mascon_bound1','lon_mascon_bound2','lat_mascon_bound1','lat_mascon_bound2','-v7.3');

@@ -8,8 +8,7 @@ clc;
 projectRoot = 'D:\OneDrive - University of California\MATLAB Codes\MOC\CMIP6_2026';
 toolboxRoot = 'D:\OneDrive - University of California\MATLAB toolboxs';
 ccmpDataDir = 'E:\Data_CCMPWind\RawData';
-referenceMasconFile = 'E:\Data_CMIP6\ACCESS_historical\Mascon_V5_OBP_r10.mat';
-accessReferenceFile = 'E:\Data_CMIP6\ACCESS_historical\uas_Amon_ACCESS-ESM1-5_historical_r36i1p1f1_gn_185001-201412.nc';
+referenceMasconFile = fullfile(projectRoot, 'BasinMask', 'Mascon_AtlSO.mat');
 outputDir = 'E:\Data_CCMPWind';
 outputFile = fullfile(outputDir, 'CCMPWind_mascon_200204_202504_V5.mat');
 
@@ -37,6 +36,10 @@ end
 % https://podaac.jpl.nasa.gov/dataset/CCMP_WINDS_10MMONTHLY_L4_V3.1#
 cd(ccmpDataDir)
 files = dir('CCMP_Wind_Analysis_*_monthly_mean_V03.1_L4.nc');
+if ~isempty(files)
+    [~, order] = sort({files.name});
+    files = files(order);
+end
 file_names = {files.name};
 Nsamps = length(file_names);
 
@@ -45,22 +48,20 @@ if isempty(file_names)
 end
 
 u10 = nan(1440,720,Nsamps);
-v10 = nan(1440,720,Nsamps);
 time_wind = nan(Nsamps,1);
 for ii = 1:Nsamps
  file = file_names{ii};
 % ncdisp(file);
  u10(:,:,ii) = ncread(file,'u');
- v10(:,:,ii) = ncread(file,'v');
  time_wind(ii)=ncread(file,'time');
 end
 
-latitude= ncread(file,'latitude');
-longitude= ncread(file,'longitude');
+sampleFile = file_names{1};
+latitude = ncread(sampleFile,'latitude');
+longitude = ncread(sampleFile,'longitude');
 
-if any(diff(time_wind)<0)
-    error('need to order data according to time')
-end
+[time_wind, sortOrder] = sort(time_wind);
+u10 = u10(:,:,sortOrder);
 
 time_wind = datetime(1987,1,1,0,0,0) + hours(time_wind);
 
@@ -109,11 +110,14 @@ cmocean('red',41,'pivot',0)
 colorbar
 title('Mean zonal wind')
 
-time_wind = time_wind(4:end);
-u10_mascon = u10_mascon(:,4:end);
+analysisStartDate = datetime(2002, 4, 1);
+validTime = time_wind >= analysisStartDate;
+if ~any(validTime)
+    error('No CCMP monthly samples on or after %s were found.', datestr(analysisStartDate, 'yyyy-mm-dd'));
+end
+time_wind = time_wind(validTime);
+u10_mascon = u10_mascon(:,validTime);
 %%% Save result
 cd(outputDir)
 save(outputFile, ...
     'lon_mascon_center','lat_mascon_center','u10_mascon','time_wind','Basin_id','-v7.3');
-
-

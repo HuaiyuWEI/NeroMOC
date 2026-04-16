@@ -10,6 +10,7 @@ clc;
 projectRoot = 'D:\OneDrive - University of California\MATLAB Codes\MOC\CMIP6_2026';
 toolboxRoot = 'D:\OneDrive - University of California\MATLAB toolboxs';
 masconDataRoot = 'D:\OneDrive - University of California\PythonWork\mascon';
+outputFile = fullfile(masconDataRoot, 'GRACE_OBP_200204_202505_V5.mat');
 
 addpath(genpath(toolboxRoot));
 addpath(genpath(projectRoot));
@@ -156,14 +157,12 @@ clim([0 500])
 
 
 
-cd(masconDataRoot)
 %%% Save grace data
-save(['GRACE_OBP_200204_202505_V5.mat'], ...
-    'lon_mascon','lat_mascon','Basin_id','time_monthly', ...
-    'obp_grace_monthly', 'GAD_grace_monthly','lon_mascon_center','lat_mascon_center', ...
+save(outputFile, ...
+    'lon_mascon','lat_mascon','Basin_id','time_grace','time_monthly', ...
+    'obp_grace_monthly', 'GAD_grace_monthly','uncertainty_mascon', ...
+    'lon_mascon_center','lat_mascon_center', ...
     'lon_mascon_bound1','lon_mascon_bound2','lat_mascon_bound1','lat_mascon_bound2','-v7.3');
-
-
 
 
 
