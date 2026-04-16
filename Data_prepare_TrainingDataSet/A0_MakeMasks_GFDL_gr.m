@@ -28,9 +28,12 @@ end
 
 %% User settings
 CMIPname = 'CM4_PIc';
-if strcmp(CMIPname,'CM4_PIc')
-    DataPath = 'E:\Data_CMIP6\GFDL_PIcontrol\CM4'; 
-    OutputFolder = fullfile(projectRoot, 'BasinMask');
+switch CMIPname
+    case 'CM4_PIc'
+        DataPath = 'E:\Data_CMIP6\GFDL_PIcontrol\CM4';
+        OutputFolder = fullfile(projectRoot, 'BasinMask');
+    otherwise
+        error('Unsupported CMIPname: %s', CMIPname);
 end
 
 if ~isfolder(DataPath)
@@ -44,7 +47,14 @@ end
 
 %% load grid and water depth
 cd(DataPath)
-DepthFile_gr = dir(fullfile(DataPath,['*deptho*gr.nc'])).name;
+depthFiles = dir(fullfile(DataPath, '*deptho*gr.nc'));
+if isempty(depthFiles)
+    error('No CM4 depth file matching *deptho*gr.nc was found in %s', DataPath);
+end
+if numel(depthFiles) > 1
+    error('Multiple CM4 depth files matched *deptho*gr.nc in %s', DataPath);
+end
+DepthFile_gr = depthFiles(1).name;
 nc=netcdf(DepthFile_gr);
 ncdisp(DepthFile_gr);
 
@@ -76,7 +86,14 @@ title('GFDL-CM4 depth (m)','Interpreter','latex')
 
 %% Double check land points using sea area fraction data
 
-File_gr = dir(fullfile(DataPath,['*sftof*gr.nc'])).name;
+seaFractionFiles = dir(fullfile(DataPath, '*sftof*gr.nc'));
+if isempty(seaFractionFiles)
+    error('No CM4 sea-fraction file matching *sftof*gr.nc was found in %s', DataPath);
+end
+if numel(seaFractionFiles) > 1
+    error('Multiple CM4 sea-fraction files matched *sftof*gr.nc in %s', DataPath);
+end
+File_gr = seaFractionFiles(1).name;
 nc=netcdf(File_gr);
 ncdisp(File_gr);
 C=nc{'sftof'}(:)';
@@ -291,7 +308,7 @@ AtlSeedLon = -20; AtlSeedLat = 0; %[deg] E/N
 MaskAtl = CalcFloodFill_Huaiyu(Mask,AtlSeedX,AtlSeedY);
 % fh = figure; contourf(X,Y,MaskAtl); colormap jet; colorbar;xlim([-180,180]);
 fh = figure; pcolor(X,Y,MaskAtl); shading flat; colormap haxby; colorbar;xlim([-180,180]);
-print(fh,[OutputFolder,'MaskAtl.png'],'-dpng','-r0'); 
+print(fh,fullfile(OutputFolder,'MaskAtl.png'),'-dpng','-r0');
 
 %% Create Indo-Pacific Mask
 %Western hemisphere flood-fill:
@@ -306,7 +323,7 @@ PacSeedLon = 150; PacSeedLat = 0; %[deg] E/N
 MaskPac = CalcFloodFill_Huaiyu(MaskPac,PacSeedX,PacSeedY);
 % fh = figure; contourf(X,Y,MaskPac); colormap haxby; colorbar;xlim([-180,180]);
 fh = figure; pcolor(X,Y,MaskPac); shading flat; colormap haxby; colorbar;xlim([-180,180]);
-print(fh,[OutputFolder,'MaskPac.png'],'-dpng','-r0'); 
+print(fh,fullfile(OutputFolder,'MaskPac.png'),'-dpng','-r0');
 
 
 
