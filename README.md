@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/1211950471.svg)](https://doi.org/10.5281/zenodo.19644948)
+
 # NeroMOC
 
 Code for processing satellite and model data, preparing training datasets, and training the neural networks used in the manuscript:
