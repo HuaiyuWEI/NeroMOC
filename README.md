@@ -10,7 +10,7 @@ Code for processing satellite and model data, preparing training datasets, and t
 
 The NeurMOC reconstruction and interactive visualization tool are available at:
 
-https://huaiyuwei.github.io/Neurmoc/
+https://huaiyuwei.github.io/neurmoc/
 
 ## Repository structure
 
