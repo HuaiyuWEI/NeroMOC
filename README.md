@@ -4,7 +4,7 @@
 
 Code for processing satellite and model data, preparing training datasets, and training the neural networks used in the manuscript:
 
-**Machine-learning-enabled satellite monitoring of ocean overturning circulation**
+**Satellite monitoring of global ocean overturning circulation enabled by deep learning**
 
 ## Related resource
 
